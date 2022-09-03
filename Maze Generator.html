@@ -1,0 +1,241 @@
+<svg id="cont" height="2100" width="2100">
+</svg>
+
+<script>
+    class Tile {
+        constructor(row, column, tr, tl, br, bl) {
+    	    this.row=row;
+            this.column=column;
+      	    this.tr=tr;
+            this.tl=tl;
+            this.br=br;
+            this.bl=bl;
+        }
+
+        topWall;
+        bottomWall;
+        rightWall;
+        leftWall;
+        connections = [];
+        visited = false;
+    }
+
+    class Vertice {
+        constructor(x, y, row, column, circle){
+    	    this.x=x;
+      	    this.y=y;
+            this.row=row;
+            this.column=column;
+            this.circle=circle;
+        }
+    }
+
+    var svgns = "http://www.w3.org/2000/svg",
+    container = document.getElementById('cont');
+
+    var tiles = [];
+    var vertices = [];
+    var walls = [];
+    var canvasHight = 0;
+    var canvasWidth = 0;
+    var searchSteps = [];
+    var biggestSearchStepsCount = [];
+    var closedPaths = [];
+
+    createGird(2000, 2000)
+    createTiles();
+    randomizeTiles(2);
+    randomizeTiles(3);
+    randomizeTiles(4);
+    randomizeTiles(5);
+    randomizeTiles(6);
+    randomizeTiles(7);
+    searchForClosedPaths();
+    searchForClosedPaths(true);
+
+    function searchForClosedPaths(reversed) {
+        biggestSearchStepsCount = [];
+        biggestSearchStepsCount.length = 50;
+        closedPaths = [];
+        searchSteps = [];
+        if(reversed){
+            for(var i = tiles.length - 1; i > 0; i--){
+                search(tiles[i]);
+            }
+        }
+        else{
+            for(var i = 0; i < tiles.length; i++){
+                search(tiles[i]);
+            }
+        }
+        
+        for(var i = 0; i < closedPaths.length; i++){
+            var newConnections = 0;
+            for(var j = 0; j < closedPaths[i].length; j++){
+                if(newConnections < 1){newConnections++; autoConnectTile(closedPaths[i][j], closedPaths[i])}
+                closedPaths[i][j].visited = false;
+            }
+        }
+
+        function search(tile){
+            if(!tile.visited){visiteTile(tile);}
+            if(searchSteps.length > biggestSearchStepsCount.length){biggestSearchStepsCount = searchSteps}
+            else if(searchSteps.length > 0){closedPaths.push(searchSteps);}
+            searchSteps = [];
+        }
+    }
+
+    function visiteTile(tile){
+        tile.visited = true;
+        searchSteps.push(tile)
+        
+        for(var i = 0; i < tile.connections.length; i++){
+            if(!tile.connections[i].visited){searchSteps.push(tile.connections[i]); visiteTile(tile.connections[i]);}
+        }
+    }
+
+    function randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1) + min)
+    }
+
+    function randomizeTiles(every){
+        for (var i = 0; i < tiles.length; i += every) {
+            randomizeTile(tiles[i]);
+        }
+    }
+
+    function randomizeTile(tile){
+        var randomNeighbor = null;
+        var rand = randomInt(0, 3);
+        if(rand == 0){randomNeighbor = getTile(tile.row +1, tile.column);}
+        if(rand == 1){randomNeighbor = getTile(tile.row -1, tile.column);}
+        if(rand == 2){randomNeighbor = getTile(tile.row, tile.column +1);}
+        if(rand == 3){randomNeighbor = getTile(tile.row, tile.column -1);}
+        if(randomNeighbor){connectTile(tile, randomNeighbor)};
+    }
+
+    function autoConnectTile(tile, denyList){
+        var neighbor = [];
+        neighbor = neighbor.concat(getTile(tile.row +1, tile.column));
+        neighbor = neighbor.concat(getTile(tile.row -1, tile.column));
+        neighbor = neighbor.concat(getTile(tile.row, tile.column +1));
+        neighbor = neighbor.concat(getTile(tile.row, tile.column -1));
+
+        neighbor = neighbor.filter((el) => el != null);
+        neighbor = neighbor.filter((el) => !denyList.includes(el));
+        for(var i = 0; i < neighbor.length; i++){
+            connectTile(tile, neighbor[i], false);
+        }
+    }
+
+    function createGird(hight, width){
+        var row = 0;
+        var column = 0;
+
+        canvasHight = hight / 50;
+        canvasWidth = width / 50;
+
+        for (var y = 100; y < hight + 100; y += 50) {
+            row = 0;
+            for (var x = 100; x < width + 100; x += 50) {
+                createVertice(x, y, row, column);
+                row++;
+            }
+            column++;
+        }
+    }
+
+    function createTiles(){
+        removeAllTiles();
+        var newTile;
+        for (var i = 0; i < vertices.length - 1; i += 1){
+            if(vertices[i].row != canvasWidth -1 && vertices[i].column != canvasHight -1){
+                newTile = new Tile(vertices[i].row, vertices[i].column, vertices[i+1], vertices[i], vertices[i +canvasWidth +1], vertices[i +canvasWidth]);
+                createWalls(newTile);
+                tiles.push(newTile);
+            }
+        }
+    }
+
+    function createWalls(tile){
+        var tr = tile.tr; var tl = tile.tl;
+        var br = tile.br; var bl = tile.bl;
+        tile.topWall = createLine(tl.x, tl.y, tr.x, tr.y, 3, "Red");
+        tile.leftWall = createLine(tl.x, tl.y, bl.x, bl.y, 3, "blue");
+        tile.rightWall = createLine(tr.x, tr.y, br.x, br.y, -3, "Green");
+        tile.bottomWall = createLine(bl.x, bl.y, br.x, br.y, -3, "yellow");
+    }
+
+    function createVertice(x, y, row, column){
+        var circle = document.createElementNS(svgns, 'circle');
+        circle.setAttributeNS(null, 'cx', x);
+        circle.setAttributeNS(null, 'cy', y);
+        circle.setAttributeNS(null, 'r', 2);
+        circle.setAttributeNS(null, 'style', 'fill: true; stroke: blue;' );
+        container.appendChild(circle);
+        var newVertice = new Vertice(x, y, row, column, circle);
+        vertices.push(newVertice);
+        return newVertice;
+    }
+
+    function createLine(fromX, fromY, toX, toY, offset, color){
+        var newLine = document.createElementNS(svgns, 'line');
+        newLine.setAttribute('id', walls.length);
+        newLine.setAttribute('x1', fromX + offset);
+        newLine.setAttribute('y1', fromY + offset);
+        newLine.setAttribute('x2', toX + offset);
+        newLine.setAttribute('y2', toY + offset);
+        newLine.setAttribute("stroke", color);
+        newLine.setAttribute("stroke-width", 3);
+        container.append(newLine);
+        walls.push(newLine);
+        return newLine;
+    }
+
+    function connectTile(origen, target, connected){
+        if(origen == null || target == null){return;}
+        if(origen.connections.find((connection) => connection == target)){return;}
+
+        if(origen.row < target.row && origen.column == target.column){container.removeChild(origen.rightWall);}
+        if(origen.row > target.row && origen.column == target.column){container.removeChild(origen.leftWall);}
+        if(origen.row == target.row && origen.column > target.column){container.removeChild(origen.topWall);}
+        if(origen.row == target.row && origen.column < target.column){container.removeChild(origen.bottomWall);}
+        if(!connected){connectTile(target, origen, true);}
+        origen.connections.push(target);
+    }
+
+    function removeAllTiles(){
+        walls.forEach(element => {
+            if(element.parentNode != null){
+                container.removeChild(element);
+            }
+        });
+        walls = [];
+        tiles = [];
+    }
+
+    function removeWalls(tile){
+        if(tile == null){return;}
+        removeWall(tile.topWall);
+        removeWall(tile.leftWall);
+        removeWall(tile.rightWall);
+        removeWall(tile.bottomWall);
+    }
+
+    function removeWall(wall){
+        if(wall && wall.parentNode){
+            wall.parentNode.removeChild(wall);
+        }
+    }
+
+    function getTile(row, column){
+        var tile = null;
+        tiles.forEach(element => {
+            if(element.row == row && element.column == column){
+                tile = element;
+            }
+            return null;
+        })
+        return tile;
+    }
+</script>
